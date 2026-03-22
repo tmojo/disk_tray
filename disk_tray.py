@@ -559,16 +559,15 @@ class DiskTrayApplet:
 
         # Open in file manager (only when mounted)
         if mounted:
-            if kind in ("mtp", "network"):
+            ismtp = kind in ("mtp", "network")
+            if ismtp or mountpoint:
                 o = self._icon_item("fileopen", "Open in File Manager")
-                uri = dev.get("path", "")
-                o.connect("activate", lambda _, u=uri: open_in_filemanager(u))
+                if ismtp:
+                    uri = dev.get("path", "")
+                    o.connect("activate", lambda _, u=uri: open_in_filemanager(u))
+                elif mountpoint:
+                    o.connect("activate", lambda _, mp=mountpoint: open_in_filemanager(mp))
                 self.menu.append(o)
-            elif mountpoint:
-                o = self._icon_item("fileopen", "Open in File Manager")
-                o.connect("activate", lambda _, mp=mountpoint: open_in_filemanager(mp))
-                self.menu.append(o)
-
     # ── Action handlers ───────────────────────────────────────────────────────
 
     def _on_mount(self, dev):
