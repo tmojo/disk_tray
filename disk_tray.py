@@ -60,10 +60,25 @@ def run(cmd):
     return result.stdout.strip(), result.stderr.strip(), result.returncode
 
 
-def notify(title, body):
-    subprocess.Popen(["notify-send", "-i", "drive-harddisk", "-t", "1000", title, body])
+def notify(title, body, icon="drive-harddisk"):
+    subprocess.Popen(["notify-send", "-t", "1000", "-i", icon, title, body])
 
 
+
+
+def _dev_icon(dev):
+    """Return the appropriate icon name for a device."""
+    kind   = dev.get("kind", "block")
+    fstype = dev.get("fstype", "")
+    if kind == "mtp":
+        return "phone"
+    if kind == "network":
+        return "folder-remote"
+    if fstype in ("iso9660", "udf"):
+        return "drive-optical"
+    if dev.get("removable"):
+        return "drive-removable-media"
+    return "drive-harddisk"
 def open_in_filemanager(path):
     subprocess.Popen(["xdg-open", path])
 
@@ -281,7 +296,7 @@ def mount_device(dev, callback):
             def _on_mount_done(vol, result):
                 try:
                     vol.mount_finish(result)
-                    notify("Mounted", f"{dev['name']} mounted.")
+                    notify("Mounted", f"{dev['name']} mounted.", icon=_dev_icon(dev))
                     # Open in file manager — get the fresh mount path
                     mount = vol.get_mount()
                     if mount:
@@ -292,7 +307,7 @@ def mount_device(dev, callback):
                         else:
                             open_in_filemanager(root.get_uri())
                 except Exception as e:
-                    notify("Mount failed", str(e))
+                    notify("Mount failed", str(e), icon=_dev_icon(dev))
                 GLib.idle_add(callback)
             volume.mount(0, None, None, _on_mount_done)
         else:
@@ -308,11 +323,11 @@ def mount_device(dev, callback):
             mp = ""
             if " at " in out:
                 mp = out.split(" at ", 1)[1].strip().rstrip(".")
-            notify("Mounted", f"{dev['name']} mounted successfully.")
+            notify("Mounted", f"{dev['name']} mounted successfully.", icon=_dev_icon(dev))
             if mp:
                 open_in_filemanager(mp)
         else:
-            notify("Mount failed", err or "Unknown error.")
+            notify("Mount failed", err or "Unknown error.", icon=_dev_icon(dev))
         GLib.idle_add(callback)
     threading.Thread(target=_do, daemon=True).start()
 
@@ -328,25 +343,25 @@ def unmount_device(dev, callback):
             def _on_unmount_done(mnt, result):
                 try:
                     mnt.unmount_with_operation_finish(result)
-                    notify("Unmounted", f"{dev['name']} unmounted.")
+                    notify("Unmounted", f"{dev['name']} unmounted.", icon=_dev_icon(dev))
                 except Exception as e:
-                    notify("Unmount failed", str(e))
+                    notify("Unmount failed", str(e), icon=_dev_icon(dev))
                 GLib.idle_add(callback)
             mount_obj.unmount_with_operation(0, None, None, _on_unmount_done)
         else:
             mp = dev.get("mountpoint", "")
             if mp:
                 run(f"gio mount -u '{mp}'")
-            notify("Unmounted", f"{dev['name']} unmounted.")
+            notify("Unmounted", f"{dev['name']} unmounted.", icon=_dev_icon(dev))
             GLib.idle_add(callback)
         return
 
     def _do():
         out, err, rc = run(f"udisksctl unmount -b {dev['path']}")
         if rc == 0:
-            notify("Unmounted", f"{dev['name']} unmounted.")
+            notify("Unmounted", f"{dev['name']} unmounted.", icon=_dev_icon(dev))
         else:
-            notify("Unmount failed", err or "Unknown error.")
+            notify("Unmount failed", err or "Unknown error.", icon=_dev_icon(dev))
         GLib.idle_add(callback)
     threading.Thread(target=_do, daemon=True).start()
 
@@ -516,26 +531,16 @@ class DiskTrayApplet:
         kind       = dev["kind"]
 
         # Pick icon based on device type
-        if kind == "mtp":
-            header_icon = "phone"
-        elif kind == "network":
-            header_icon = "folder-remote"
-        elif dev.get("removable"):
-            header_icon = "drive-removable-media"
-        elif fstype in ("iso9660", "udf"):
-            header_icon = "drive-optical"
-        else:
-            header_icon = "drive-harddisk"
+        header_icon = _dev_icon(dev)
 
         # Header row — clickable mount/unmount toggle
         status = "🟢" if mounted else "⚫"
-        size = size + ", " if size!="?" else ""
-        header_text = f"{status}  {name}  [{size}{fstype}]"
+        header_text = f"{status}  {name}  [{size}, {fstype}]"
         if mounted and mountpoint and kind not in ("mtp", "network"):
             header_text += f"   ↳  {mountpoint}"
 
         header = Gtk.MenuItem()
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         img = Gtk.Image.new_from_icon_name(header_icon, Gtk.IconSize.MENU)
         lbl = Gtk.Label()
         lbl.set_markup(f"<b>{GLib.markup_escape_text(header_text)}</b>")
