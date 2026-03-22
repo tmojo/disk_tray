@@ -590,7 +590,7 @@ class DiskTrayApplet:
         # Header row — CheckMenuItem: checked=mounted, click=toggle mount
         size_str = f"{size}, " if size and size != "?" else ""
         header_text = f"{name}  [{size_str}{fstype}]"
-        if mounted and mountpoint and kind != "mtp" and not mountpoint.startswith("/run/user/"):
+        if mounted and mountpoint and not mountpoint.startswith("/run/user/"):
             header_text += f"   ↳  {mountpoint}"
 
         header = Gtk.CheckMenuItem()
