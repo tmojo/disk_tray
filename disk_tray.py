@@ -533,7 +533,7 @@ class DiskTrayApplet:
         kind       = dev["kind"]
 
         # Pick icon based on device type
-        header_icon = _dev_icon(dev)
+        # header_icon = _dev_icon(dev)
 
         # Header row — CheckMenuItem: checked=mounted, click=toggle mount
         size_str = f"{size}, " if size and size != "?" else ""
@@ -544,13 +544,14 @@ class DiskTrayApplet:
         header = Gtk.CheckMenuItem()
         header.set_active(mounted)
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        img = Gtk.Image.new_from_icon_name(header_icon, Gtk.IconSize.MENU)
+        # img = Gtk.Image.new_from_icon_name(header_icon, Gtk.IconSize.MENU)
         lbl = Gtk.Label()
         lbl.set_markup(f"<b>{GLib.markup_escape_text(header_text)}</b>")
         lbl.set_halign(Gtk.Align.START)
-        box.pack_start(img, False, False, 0)
+        # box.pack_start(img, False, False, 0)
         box.pack_start(lbl, True, True, 0)
         header.add(box)
+        # box.show_all()
         if mounted:
             header.connect("activate", lambda _, d=dev: self._on_unmount(d))
         else:
@@ -566,6 +567,7 @@ class DiskTrayApplet:
                     uri = dev.get("path", "")
                     o.connect("activate", lambda _, u=uri: open_in_filemanager(u))
                 elif mountpoint:
+                    o = self._icon_item("fileopen", "Open in File Manager")
                     o.connect("activate", lambda _, mp=mountpoint: open_in_filemanager(mp))
                 self.menu.append(o)
     # ── Action handlers ───────────────────────────────────────────────────────
