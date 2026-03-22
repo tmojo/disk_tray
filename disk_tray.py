@@ -217,22 +217,27 @@ def get_block_devices():
 
 def get_gio_devices():
     """
-    Detect non-block volumes via Gio.VolumeMonitor:
+    Detect non-block volumes/mounts via Gio.VolumeMonitor:
       - MTP devices (phones, cameras) identified by mtp:// activation root
         or unix-device under /dev/bus/usb/
       - Network volumes (NFS, SMB, SFTP, etc.) identified by class='network'
         or activation root with a network URI scheme
 
-    Iterates volumes only (not raw mounts) to avoid the shadowed GDaemonMount
-    duplicate that gvfs creates for MTP.
+    Two passes:
+      1. Volumes — covers unmounted network shares and MTP devices.
+         Skips MTP volumes whose shadow mount is already handled in pass 2.
+      2. Volume-less mounts (GDaemonMount) — catches SFTP/gvfs mounts that
+         were opened directly (e.g. via a file manager) and have no Volume
+         object.  Skips shadowed mounts to avoid MTP duplicates.
     """
     devices = []
     vm = Gio.VolumeMonitor.get()
 
-    # Network URI schemes gvfs exposes as volumes
+    # Network URI schemes gvfs exposes as volumes or mounts
     NETWORK_SCHEMES = {"smb", "sftp", "ftp", "nfs", "dav", "davs",
                        "network", "dns-sd", "afp"}
 
+    # ── Pass 1: volumes ───────────────────────────────────────────────────────
     for volume in vm.get_volumes():
         name = volume.get_name() or "Unknown Volume"
 
@@ -276,6 +281,49 @@ def get_gio_devices():
             "removable":  True,
             "kind":       kind,
             "_volume":    volume,
+            "_mount":     mount,
+        })
+
+    # ── Pass 2: volume-less mounts (e.g. GDaemonMount for SFTP) ──────────────
+    # These are mounts opened directly by gvfs/file-managers with no Volume.
+    # Shadowed mounts are the hidden duplicates gvfs creates for MTP — skip them.
+    seen_uris = {d["path"] for d in devices}
+
+    for mount in vm.get_mounts():
+        # Skip if this mount belongs to a volume (already handled above)
+        if mount.get_volume() is not None:
+            continue
+        # Skip the hidden shadow-mount gvfs creates for MTP
+        if mount.is_shadowed():
+            continue
+
+        root   = mount.get_root()
+        uri    = root.get_uri() if root else ""
+        scheme = uri.split("://")[0].lower() if "://" in uri else ""
+
+        # Only include network-scheme mounts (sftp, smb, ftp, nfs, …)
+        if scheme not in NETWORK_SCHEMES:
+            continue
+
+        # Avoid duplicating anything already found via volumes
+        if uri in seen_uris:
+            continue
+
+        name       = mount.get_name() or uri
+        mountpoint = root.get_path() if root else ""
+        if not mountpoint and root:
+            mountpoint = uri  # gvfs URI as fallback (e.g. sftp://host/)
+
+        devices.append({
+            "name":       name,
+            "path":       uri or name,
+            "fstype":     scheme or "network",
+            "size":       "?",
+            "mountpoint": mountpoint,
+            "mounted":    True,   # if it's in get_mounts() it is mounted
+            "removable":  True,
+            "kind":       "network",
+            "_volume":    None,
             "_mount":     mount,
         })
 
@@ -538,7 +586,7 @@ class DiskTrayApplet:
         # Header row — CheckMenuItem: checked=mounted, click=toggle mount
         size_str = f"{size}, " if size and size != "?" else ""
         header_text = f"{name}  [{size_str}{fstype}]"
-        if mounted and mountpoint and kind not in ("mtp", "network"):
+        if mounted and mountpoint and kind != "mtp" and not mountpoint.startswith("/run/user/"):
             header_text += f"   ↳  {mountpoint}"
 
         header = Gtk.CheckMenuItem()
