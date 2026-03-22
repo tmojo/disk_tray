@@ -379,6 +379,8 @@ class DiskTrayApplet:
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         self.indicator.set_title("Disk Manager")
 
+        # settings = Gtk.Settings.get_default()
+        # settings.set_property("gtk-menu-images", True)
 
         self._menu_open = False
         self._last_devs  = []
@@ -484,7 +486,7 @@ class DiskTrayApplet:
     def _icon_item(self, icon_name, label_text):
         """Create a menu item with a themed icon using a Box (no deprecated ImageMenuItem)."""
         item = Gtk.MenuItem()
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
         lbl = Gtk.Label(label=label_text)
         lbl.set_halign(Gtk.Align.START)
@@ -533,14 +535,15 @@ class DiskTrayApplet:
         # Pick icon based on device type
         header_icon = _dev_icon(dev)
 
-        # Header row — clickable mount/unmount toggle
-        status = "🟢" if mounted else "⚫"
-        header_text = f"{status}  {name}  [{size}, {fstype}]"
+        # Header row — CheckMenuItem: checked=mounted, click=toggle mount
+        size_str = f"{size}, " if size and size != "?" else ""
+        header_text = f"{name}  [{size_str}{fstype}]"
         if mounted and mountpoint and kind not in ("mtp", "network"):
             header_text += f"   ↳  {mountpoint}"
 
-        header = Gtk.MenuItem()
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header = Gtk.CheckMenuItem()
+        header.set_active(mounted)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         img = Gtk.Image.new_from_icon_name(header_icon, Gtk.IconSize.MENU)
         lbl = Gtk.Label()
         lbl.set_markup(f"<b>{GLib.markup_escape_text(header_text)}</b>")
