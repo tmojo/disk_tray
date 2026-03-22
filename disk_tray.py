@@ -61,7 +61,7 @@ def run(cmd):
 
 
 def notify(title, body):
-    subprocess.Popen(["notify-send", "-i", "drive-harddisk", title, body])
+    subprocess.Popen(["notify-send", "-i", "drive-harddisk", "-t", "1000", title, body])
 
 
 def open_in_filemanager(path):
@@ -515,39 +515,51 @@ class DiskTrayApplet:
         mountpoint = dev.get("mountpoint", "")
         kind       = dev["kind"]
 
-        # Header row — non-clickable, dot status + name + info
+        # Pick icon based on device type
+        if kind == "mtp":
+            header_icon = "phone"
+        elif kind == "network":
+            header_icon = "folder-remote"
+        elif dev.get("removable"):
+            header_icon = "drive-removable-media"
+        elif fstype in ("iso9660", "udf"):
+            header_icon = "drive-optical"
+        else:
+            header_icon = "drive-harddisk"
+
+        # Header row — clickable mount/unmount toggle
         status = "🟢" if mounted else "⚫"
-        header_text = f"{status}  {name}  [{size}, {fstype}]"
+        size = size + ", " if size!="?" else ""
+        header_text = f"{status}  {name}  [{size}{fstype}]"
         if mounted and mountpoint and kind not in ("mtp", "network"):
             header_text += f"   ↳  {mountpoint}"
 
         header = Gtk.MenuItem()
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        img = Gtk.Image.new_from_icon_name(header_icon, Gtk.IconSize.MENU)
         lbl = Gtk.Label()
         lbl.set_markup(f"<b>{GLib.markup_escape_text(header_text)}</b>")
         lbl.set_halign(Gtk.Align.START)
-        header.add(lbl)
-        header.set_sensitive(False)
+        box.pack_start(img, False, False, 0)
+        box.pack_start(lbl, True, True, 0)
+        header.add(box)
+        if mounted:
+            header.connect("activate", lambda _, d=dev: self._on_unmount(d))
+        else:
+            header.connect("activate", lambda _, d=dev: self._on_mount(d))
         self.menu.append(header)
 
-        # Action rows
+        # Open in file manager (only when mounted)
         if mounted:
-            u = self._icon_item("media-eject", "Unmount")
-            u.connect("activate", lambda _, d=dev: self._on_unmount(d))
-            self.menu.append(u)
-
             if kind in ("mtp", "network"):
-                o = self._icon_item("folder-open", "Open in File Manager")
+                o = self._icon_item("fileopen", "Open in File Manager")
                 uri = dev.get("path", "")
                 o.connect("activate", lambda _, u=uri: open_in_filemanager(u))
                 self.menu.append(o)
             elif mountpoint:
-                o = self._icon_item("folder-open", "Open in File Manager")
+                o = self._icon_item("fileopen", "Open in File Manager")
                 o.connect("activate", lambda _, mp=mountpoint: open_in_filemanager(mp))
                 self.menu.append(o)
-        else:
-            m = self._icon_item("media-playback-start", "Mount")
-            m.connect("activate", lambda _, d=dev: self._on_mount(d))
-            self.menu.append(m)
 
     # ── Action handlers ───────────────────────────────────────────────────────
 
