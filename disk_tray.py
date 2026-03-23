@@ -644,7 +644,7 @@ class DiskTrayApplet:
         dlg.set_program_name("Disk Tray")
         dlg.set_version("1.0")
         dlg.set_comments(
-            "A system tray applet for managing disks,\n"
+            "A system tray applet for mounting disks,\n"
             "partitions, and MTP devices."
         )
         dlg.set_license_type(Gtk.License.MIT_X11)
