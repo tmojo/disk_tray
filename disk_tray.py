@@ -26,8 +26,6 @@ gi.require_version("Gio", "2.0")
 from gi.repository import Gtk, AppIndicator3, GLib, Gio
 
 
-
-
 # ── Config ────────────────────────────────────────────────────────────────────
 
 ICON_TRAY       = "drive-harddisk-symbolic"
@@ -64,8 +62,6 @@ def notify(title, body, icon="drive-harddisk"):
     subprocess.Popen(["notify-send", "-t", "1000", "-i", icon, title, body])
 
 
-
-
 def _dev_icon(dev):
     """Return the appropriate icon name for a device."""
     kind   = dev.get("kind", "block")
@@ -79,6 +75,8 @@ def _dev_icon(dev):
     if dev.get("removable"):
         return "drive-removable-media"
     return "drive-harddisk"
+
+
 def open_in_filemanager(path):
     subprocess.Popen(["xdg-open", path])
 
@@ -598,7 +596,7 @@ class DiskTrayApplet:
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         # img = Gtk.Image.new_from_icon_name(header_icon, Gtk.IconSize.MENU)
         lbl = Gtk.Label()
-        lbl.set_markup(f"<b>{GLib.markup_escape_text(header_text)}</b>")
+        lbl.set_text(header_text)
         lbl.set_halign(Gtk.Align.START)
         # box.pack_start(img, False, False, 0)
         box.pack_start(lbl, True, True, 0)
