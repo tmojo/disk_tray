@@ -217,7 +217,7 @@ def get_block_devices():
                 continue
 
             # Skip bare disks — just recurse
-            if ntype == "disk" and not fstype and not mountpoint:
+            if ntype == "disk":
                 walk(children, hotplug)
                 continue
 
