@@ -640,12 +640,10 @@ class DiskTrayApplet:
             ismtp = kind in ("mtp", "network")
             if ismtp or mountpoint:
                 o = self._icon_item("fileopen", "Open in File Manager")
-                if ismtp:
-                    uri = dev.get("path", "")
-                    o.connect("activate", lambda _, u=uri: open_in_filemanager(u))
-                elif mountpoint:
-                    o = self._icon_item("fileopen", "Open in File Manager")
-                    o.connect("activate", lambda _, mp=mountpoint: open_in_filemanager(mp))
+                # Prefer the real mountpoint path; fall back to the URI for
+                # MTP/network mounts where get_path() returns None.
+                target = mountpoint if mountpoint else dev.get("path", "")
+                o.connect("activate", lambda _, t=target: open_in_filemanager(t))
                 self.menu.append(o)
     # ── Action handlers ───────────────────────────────────────────────────────
 
